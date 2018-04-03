@@ -12,7 +12,7 @@ const int rs = 2, en = 4, d4 = 8, d5 = 9, d6 = 10, d7 = 11;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 byte smiley[8] = {
-  B00000,
+  B10000,
   B10001,
   B00000,
   B00000,
@@ -29,18 +29,20 @@ void setup() {
   Serial.begin(9600);
 
   OCR2A = 110;
+  TCCR2B = 0;
   TCCR2A = _BV(WGM20);
+  TIFR2 |= _BV(TOV2);
   TIMSK2 |= _BV(TOIE2);
 
   ROT_PORT |= ROT_A | ROT_B;
+  PCMSK1 |= ROT_A | ROT_B | ROT_BTN;
   PCIFR |= _BV(PCIF1);
   PCICR |= _BV(PCIE1);
-  PCMSK1 |= ROT_A | ROT_B | ROT_BTN;
 }
 
 volatile int _v = 0;
 volatile int _b = 0;
-volatile byte _lastRot;
+volatile byte _lastRot = 0;
 volatile char _sign = 0;
 
 ISR(TIMER2_OVF_vect) {
@@ -88,17 +90,27 @@ void setDelay(byte dly) {
   TCCR2B = _BV(CS22) | _BV(WGM22);
 }
 
-volatile int _last = 0;
+volatile int _last = -1;
 volatile int _lastB = 0;
+
 void loop() {
-  if (_v != _last || _b != _lastB)
+  int v = _v;
+
+  if (v != _last || _b != _lastB)
   {
+    byte i = (byte)_last % (5 * 8);
+    byte j = (byte)v % (5 * 8);
+    smiley[j / 5] ^= 1 << (4-(j % 5));
+    smiley[i / 5] ^= 1 << (4-(i % 5));
+    lcd.createChar(0, smiley);
     lcd.setCursor(0, 0);
-    lcd.print(_v);
+    lcd.print(v);
     lcd.print("    ");
-    lcd.setCursor(0, 5);
+    lcd.setCursor(5, 0);
+    lcd.print(_b);
+    lcd.setCursor(0, 3);
     lcd.write((byte)0);
-    _last = _v;
+    _last = v;
     _lastB = _b;
     Serial.print(_v);
     Serial.print("\t");
