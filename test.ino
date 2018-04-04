@@ -7,6 +7,12 @@
 #define ROT_BTN _BV(3)
 #define ROT_DELAY 110
 #define ROT_BTN_DELAY 255
+#define ROT_LED_PORT PORTD
+#define ROT_LED_DDR DDRD
+#define ROT_LED_R _BV(7)
+#define ROT_LED_G _BV(6)
+#define ROT_LED_B _BV(5)
+#define ROT_LED_RGB (ROT_LED_R | ROT_LED_G | ROT_LED_B)
 
 const int rs = 2, en = 4, d4 = 8, d5 = 9, d6 = 10, d7 = 11;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
@@ -34,6 +40,7 @@ void setup() {
   TIFR2 |= _BV(TOV2);
   TIMSK2 |= _BV(TOIE2);
 
+  ROT_LED_DDR |= ROT_LED_RGB;
   ROT_PORT |= ROT_A | ROT_B;
   PCMSK1 |= ROT_A | ROT_B | ROT_BTN;
   PCIFR |= _BV(PCIF1);
@@ -93,11 +100,23 @@ void setDelay(byte dly) {
 volatile int _last = -1;
 volatile int _lastB = 0;
 
+byte _led[4] = {
+  ROT_LED_R,
+  ROT_LED_G,
+  ROT_LED_B,
+  ROT_LED_RGB
+};
+
 void loop() {
   int v = _v;
 
   if (v != _last || _b != _lastB)
   {
+    byte led = _led[(_v + _b) % 4];
+    // active-LOW
+    ROT_LED_PORT |= ROT_LED_RGB ^ led;
+    ROT_LED_PORT &= ~led;
+
     byte i = (byte)_last % (5 * 8);
     byte j = (byte)v % (5 * 8);
     smiley[j / 5] ^= 1 << (4-(j % 5));
