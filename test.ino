@@ -34,11 +34,11 @@ void setup() {
 
   Serial.begin(9600);
 
-  OCR2A = 110;
+  OCR2A = ROT_DELAY;
   TCCR2B = 0;
   TCCR2A = _BV(WGM20);
-  TIFR2 |= _BV(TOV2);
-  TIMSK2 |= _BV(TOIE2);
+  TIFR2 |= _BV(OCF2A);
+  TIMSK2 |= _BV(OCIE2A);
 
   ROT_LED_DDR |= ROT_LED_RGB;
   ROT_PORT |= ROT_A | ROT_B;
@@ -52,7 +52,7 @@ volatile int _b = 0;
 volatile byte _lastRot = 0;
 volatile char _sign = 0;
 
-ISR(TIMER2_OVF_vect) {
+ISR(TIMER2_COMPA_vect) {
   TCCR2B = 0;
 
   if (_sign == 0)
@@ -94,11 +94,11 @@ ISR(PCINT1_vect) {
 void setDelay(byte dly) {
   OCR2A = dly;
   TCNT2 = 1;
-  TCCR2B = _BV(CS22) | _BV(WGM22);
+  TCCR2B = _BV(CS22) | _BV(CS20) | _BV(WGM22);
 }
 
-volatile int _last = -1;
-volatile int _lastB = 0;
+int _last = 0;
+int _lastB = 0;
 
 byte _led[4] = {
   ROT_LED_R,
@@ -112,13 +112,13 @@ void loop() {
 
   if (v != _last || _b != _lastB)
   {
-    byte led = _led[(_v + _b) % 4];
+    byte led = _led[umod(_v + _b, 4)];
     // active-LOW
     ROT_LED_PORT |= ROT_LED_RGB ^ led;
     ROT_LED_PORT &= ~led;
 
-    byte i = (byte)_last % (5 * 8);
-    byte j = (byte)v % (5 * 8);
+    byte i = umod(_last, 5 * 8);
+    byte j = umod(v, 5 * 8);
     smiley[j / 5] ^= 1 << (4-(j % 5));
     smiley[i / 5] ^= 1 << (4-(i % 5));
     lcd.createChar(0, smiley);
@@ -137,3 +137,8 @@ void loop() {
     Serial.println();
   }
 }
+
+byte umod(int n, byte mod) {
+  return ((n % mod) + mod) % mod;
+}
+
